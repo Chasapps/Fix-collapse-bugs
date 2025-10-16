@@ -228,7 +228,7 @@ function categorise(txns, rules) {
     const amount = Math.abs(Number(t.amount || t.debit || 0));
     let matched = null;
     for (const r of rules) {
-      if (matchesKeyword(descLower, r.keyword)) { matched = r.category; break; }
+      if (matchesKeyword(descLower, r.keyword)) { matched = r.category; }
     }
     if (matched && String(matched).toUpperCase() === "PETROL" && amount <= 2) matched = "COFFEE";
     t.category = matched || "UNCATEGORISED";
