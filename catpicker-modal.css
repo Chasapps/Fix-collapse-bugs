@@ -1,0 +1,365 @@
+/* ============================================================================
+   CATEGORY PICKER MODAL - STYLESHEET (iPhone Optimized)
+   ============================================================================
+   
+   This stylesheet defines the appearance of the category picker modal dialog.
+   All touch targets are optimized for iPhone with minimum 44px heights.
+   
+   ============================================================================ */
+
+/* ============================================================================
+   MODAL BACKDROP (Full-screen overlay)
+   ============================================================================
+   This creates the semi-transparent dark background behind the modal */
+
+.catpicker-backdrop {
+  /* Fixed positioning - stays in place even when scrolling */
+  position: fixed;
+  
+  /* inset: 0 is shorthand for top:0, right:0, bottom:0, left:0 */
+  /* This makes the backdrop cover the entire screen */
+  inset: 0;
+  
+  /* Semi-transparent dark background */
+  background: rgba(0, 0, 0, 0.32);
+  
+  /* Hidden by default */
+  display: none;
+  
+  /* Flexbox centers the dialog both horizontally and vertically */
+  align-items: center;
+  justify-content: center;
+  
+  /* High z-index ensures modal appears above everything else */
+  z-index: 9999;
+}
+
+/* Show the backdrop when .show class is added */
+.catpicker-backdrop.show {
+  display: flex;
+}
+
+/* ============================================================================
+   MODAL DIALOG (The white box in the center)
+   ============================================================================ */
+
+.catpicker-dialog {
+  /* Responsive width */
+  width: min(520px, 92vw);  /* Use 520px on desktop, 92% of viewport on mobile */
+  
+  max-height: 86vh;         /* Don't exceed 86% of viewport height */
+  overflow: hidden;          /* Prevent content overflow */
+  
+  background: #fff;
+  border: 2px solid var(--border, #ffd3e8);
+  border-radius: 14px;
+  
+  /* Shadow for depth */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  
+  /* Flexbox layout for header, body, footer */
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   MODAL HEADER
+   ============================================================================ */
+
+.catpicker-header {
+  padding: 16px 18px;       /* Increased padding for iPhone */
+  border-bottom: 1px solid var(--border, #f0f0f0);
+}
+
+.catpicker-title {
+  margin: 0;
+  font-size: 20px;          /* Larger for iPhone */
+  font-weight: 700;
+  color: #222;
+}
+
+/* ============================================================================
+   MODAL BODY (Contains search, list, and pagination)
+   ============================================================================ */
+
+.catpicker-body {
+  padding: 14px 16px;       /* Increased padding */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;                /* Space between elements */
+  flex: 1;                  /* Take up remaining space */
+  overflow: hidden;          /* Prevent body overflow */
+}
+
+/* ============================================================================
+   SEARCH INPUT
+   ============================================================================ */
+
+.catpicker-search {
+  width: 100%;
+  padding: 14px 16px;       /* iPhone-friendly padding */
+  font-size: 18px;          /* Prevents auto-zoom on iPhone */
+  min-height: 44px;         /* Touch target minimum */
+  
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  
+  /* Remove default styles */
+  -webkit-appearance: none;
+  appearance: none;
+  
+  transition: border-color 0.2s ease;
+}
+
+.catpicker-search:focus {
+  outline: none;
+  border-color: var(--accent, #00c2ff);
+  box-shadow: 0 0 0 3px rgba(0, 194, 255, 0.1);
+}
+
+.catpicker-search::placeholder {
+  color: #999;
+}
+
+/* ============================================================================
+   CATEGORY LIST (Scrollable container)
+   ============================================================================ */
+
+.catpicker-list {
+  flex: 1;                  /* Take up available space */
+  overflow: auto;           /* Scroll when content exceeds height */
+  
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 8px;
+  
+  max-height: 400px;
+  
+  /* Smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================================================
+   CATEGORY ITEMS (Individual category buttons)
+   ============================================================================ */
+
+.catpicker-item {
+  padding: 14px 16px;       /* Larger padding for iPhone */
+  min-height: 52px;         /* Comfortable touch target (> 44px) */
+  
+  border-radius: 12px;
+  cursor: pointer;
+  
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  
+  border: 2px solid transparent;
+  
+  /* Smooth transitions */
+  transition: all 0.15s ease;
+  
+  /* Prevent text selection on tap */
+  -webkit-user-select: none;
+  user-select: none;
+  
+  font-size: 17px;          /* Readable on iPhone */
+}
+
+/* Hover/active state */
+.catpicker-item:hover,
+.catpicker-item:active {
+  background: #fafafa;
+  border-color: #eee;
+}
+
+/* Selected state */
+.catpicker-item[aria-selected="true"] {
+  outline: 2px solid var(--accent, #00c2ff);
+  background: #f7fbff;
+  border-color: #dbefff;
+  font-weight: 600;
+}
+
+/* ============================================================================
+   CATEGORY BADGE (Optional indicator, currently empty)
+   ============================================================================ */
+
+.catpicker-badge {
+  font-size: 13px;
+  color: #666;
+  border: 1px solid #eee;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: #f9f9f9;
+}
+
+/* ============================================================================
+   PAGINATION CONTROLS
+   ============================================================================ */
+
+.catpicker-pager {
+  padding: 8px 0;
+  text-align: center;
+}
+
+.catpicker-page-btn {
+  padding: 10px 18px;       /* iPhone-friendly touch target */
+  min-height: 44px;
+  min-width: 70px;
+  
+  border-radius: 10px;
+  border: 2px solid #ddd;
+  background: #fff;
+  color: #333;
+  
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  
+  transition: all 0.2s ease;
+  
+  /* Prevent text selection */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.catpicker-page-btn:hover:not([disabled]),
+.catpicker-page-btn:active:not([disabled]) {
+  background: #f5f5f5;
+  border-color: #999;
+  transform: translateY(-1px);
+}
+
+.catpicker-page-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   MODAL ACTIONS (Footer buttons)
+   ============================================================================ */
+
+.catpicker-actions {
+  padding: 16px 18px;       /* Increased padding */
+  border-top: 1px solid #f0f0f0;
+  
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;                /* Space between buttons */
+  flex-wrap: wrap;          /* Wrap on very small screens */
+}
+
+.catpicker-btn {
+  padding: 14px 20px;       /* Large touch target */
+  min-height: 44px;
+  
+  border-radius: 12px;
+  border: 2px solid var(--border, #ffd3e8);
+  background: #fff;
+  color: #333;
+  
+  font-weight: 600;
+  font-size: 17px;
+  cursor: pointer;
+  
+  transition: all 0.2s ease;
+  
+  /* Prevent text selection */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.catpicker-btn:hover,
+.catpicker-btn:active {
+  background: #f8f8f8;
+  border-color: #ccc;
+  transform: translateY(-1px);
+}
+
+/* Primary button (Use category) */
+.catpicker-btn.primary {
+  background: linear-gradient(90deg, var(--primary, #ff4fb3), var(--primary-2, #7a5cff));
+  color: #fff;
+  border-color: transparent;
+}
+
+.catpicker-btn.primary:hover,
+.catpicker-btn.primary:active {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ============================================================================
+   MOBILE OPTIMIZATIONS
+   ============================================================================
+   Extra rules for touch devices */
+
+/* Larger touch targets on touch devices */
+@media (pointer: coarse) {
+  .catpicker-item {
+    padding: 16px 18px;
+    min-height: 56px;       /* Even larger for pure touch */
+  }
+  
+  .catpicker-search {
+    padding: 16px 18px;
+    font-size: 18px;        /* Definitely prevent zoom */
+  }
+  
+  .catpicker-page-btn {
+    min-height: 48px;
+    padding: 12px 20px;
+  }
+  
+  .catpicker-btn {
+    min-height: 48px;
+    padding: 16px 24px;
+  }
+}
+
+/* ============================================================================
+   TABLET AND DESKTOP ADJUSTMENTS
+   ============================================================================ */
+
+@media (min-width: 768px) {
+  .catpicker-title {
+    font-size: 18px;
+  }
+  
+  .catpicker-search {
+    font-size: 16px;
+    padding: 12px 14px;
+  }
+  
+  .catpicker-item {
+    padding: 12px 14px;
+    min-height: 44px;
+    font-size: 15px;
+  }
+  
+  .catpicker-btn {
+    font-size: 15px;
+    padding: 12px 18px;
+  }
+}
+
+/* ============================================================================
+   ACCESSIBILITY ENHANCEMENTS
+   ============================================================================ */
+
+/* Focus visible for keyboard navigation */
+.catpicker-item:focus-visible {
+  outline: 3px solid var(--accent, #00c2ff);
+  outline-offset: 2px;
+}
+
+.catpicker-btn:focus-visible {
+  outline: 3px solid var(--primary, #ff4fb3);
+  outline-offset: 2px;
+}
+
+.catpicker-search:focus-visible {
+  outline: 3px solid var(--accent, #00c2ff);
+  outline-offset: 2px;
+}

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Character encoding for proper text display -->
+  <meta charset="UTF-8">
+  
+  <!-- Mobile viewport settings for iPhone optimization -->
+  <!-- width=device-width: Use the device's actual width -->
+  <!-- initial-scale=1.0: Start at 100% zoom (no zooming out) -->
+  <!-- user-scalable=yes: Allow users to pinch-zoom if needed -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  
+  <!-- Page title that appears in browser tab -->
+  <title>SpendLite V1</title>
+  
+  <!-- Link to main stylesheet (CSS for visual styling) -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Link to modal dialog stylesheet (CSS for popup category picker) -->
+  <link rel="stylesheet" href="catpicker-modal.css">
+</head>
+<body>
+  <!-- Header section with app title and navigation -->
+  <header class="app-header">
+    <h1>SpendLite V1</h1>
+    <div class="header-actions">
+      <!-- Link to advanced mode (if it exists) -->
+      <a class="btn-adv" href="advanced.html" title="Advanced Mode">Advanced →</a>
+      <!-- Close app button with auto-save -->
+      <button id="closeAppBtn" class="btn-close" title="Close App">✕ Close</button>
+    </div>
+  </header>
+
+  <!-- Status message for save feedback -->
+  <div id="saveStatus" class="save-status" style="display:none;"></div>
+
+  <!-- Main content area -->
+  <main>
+    
+    <!-- SECTION 1: CSV File Upload -->
+    <section class="card">
+      <h2>1) Load Transactions (CSV)</h2>
+      <div class="app-controls">
+        <!-- File input for uploading bank CSV files -->
+        <!-- accept=".csv" restricts file picker to CSV files only -->
+        <input type="file" id="csvFile" accept=".csv">
+
+        <!-- Month filter dropdown and clear button -->
+        <div class="filters">
+          <label for="monthFilter">Filter by Month:</label>
+          <!-- Dropdown will be populated dynamically by JavaScript -->
+          <select id="monthFilter">
+            <option value="">All months</option>
+          </select>
+          <!-- Button to clear month filter and show all months -->
+          <button id="clearMonthBtn" class="secondary small">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: Category Totals Display -->
+    <section class="card">
+      <details id="totalsDetails" open>
+  <summary><h2>2) Category Totals <span id="monthBanner" class="muted"></span></h2></summary>
+
+      <div class="btn-row app-controls">
+        <!-- Button to export category totals as a text file -->
+        <button id="exportTotalsBtn" class="secondary">Export totals (.txt)</button>
+      </div>
+
+      <!-- Wrapper for totals display -->
+      <div id="simpleTotalsWrapper">
+        <!-- Month summary (count, debit, credit, net) -->
+        <div id="monthTotals" class="month-totals muted"></div>
+        <!-- Category breakdown table (populated by JavaScript) -->
+        <div id="categoryTotals"></div>
+        <!-- Additional totals bar -->
+        <div id="totalsBar" class="muted" style="margin-top:8px;"></div>
+      </div>
+    
+  </details>
+</section>
+
+    <!-- SECTION 3: Categorization Rules -->
+    <section class="card">
+      <!-- Collapsible details element (click to expand/collapse) -->
+      <details id="rulesDetails">
+        <summary><h2 style="display:inline">3) Rules</h2></summary>
+
+        <!-- Instructions for rule format -->
+        <p>Format: <code>KEYWORD =&gt; CATEGORY</code> (one per line, case-insensitive; first match wins)</p>
+
+        <div class="app-controls">
+          <div class="btn-row">
+            <!-- Recalculate button applies current rules to transactions -->
+            <button id="recalculateBtn">Recalculate</button>
+            
+            <!-- Export rules to a text file -->
+            <button id="exportRulesBtn" class="secondary">Export rules</button>
+            
+            <!-- Import rules from a text file -->
+            <button id="importRulesBtn" class="secondary">Import rules</button>
+            
+            <!-- Hidden file input (triggered by Import button) -->
+            <input type="file" id="importRulesInput" accept=".txt,text/plain" style="display:none">
+          </div>
+          
+          <!-- Text area for editing categorization rules -->
+          <!-- Each line: keyword => category name -->
+          <textarea id="rulesBox" rows="10" cols="50" placeholder="e.g. COLES => GROCERIES"></textarea>
+        </div>
+      </details>
+    </section>
+
+    <!-- SECTION 4: Transaction List -->
+    <section class="card">
+      <h2>4) Transactions <span id="activeFilter" class="muted"></span></h2>
+
+      <div class="btn-row app-controls">
+        <!-- Toggle button to show/hide transaction table -->
+        <button id="txnsToggleBtn" class="secondary" onclick="toggleTransactions()">Show transactions</button>
+      </div>
+
+      <!-- Transaction table container (can be hidden) -->
+      <div id="transactionsBody">
+        <div class="btn-row app-controls">
+          <!-- Clear filter button (hidden when no filter is active) -->
+          <button id="clearFilterBtn" class="secondary" style="display:none">Show all</button>
+        </div>
+
+        <!-- Transaction table (populated by JavaScript) -->
+        <table id="transactionsTable" class="zebra"></table>
+        
+        <!-- Pagination controls (populated by JavaScript) -->
+        <div id="pager" class="pager"></div>
+      </div>
+
+      <!-- Helpful tip for users -->
+      <p class="tip"><small>Tip: click a <b>category</b> above to filter, or click "+" to add a rule for that merchant.</small></p>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">Made with ♥ for bright, jolly spreadsheets</footer>
+
+  <!-- External library: PapaParse for CSV parsing -->
+  <!-- This library converts CSV text into JavaScript arrays/objects -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  
+  <!-- Main application JavaScript -->
+  <script src="script.js"></script>
+  
+  <!-- Category picker modal JavaScript -->
+  <script src="catpicker-modal.js"></script>
+</body>
+</html>

@@ -1,0 +1,643 @@
+/* ============================================================================
+   SPENDLITE - MAIN STYLESHEET (iPhone Optimized)
+   ============================================================================
+   
+   MOBILE-FIRST APPROACH:
+   - Base styles are optimized for mobile (iPhone)
+   - Touch targets are minimum 44px (Apple's recommended size)
+   - Font sizes are larger for better readability on small screens
+   - Desktop refinements are added via media queries
+   
+   ============================================================================ */
+
+/* ============================================================================
+   CSS CUSTOM PROPERTIES (Variables)
+   ============================================================================
+   These are like variables in programming - define once, use everywhere
+   Change these values to customize the color scheme */
+
+:root {
+  /* Color palette */
+  --bg: #fff9fb;           /* Page background - light pink tint */
+  --card: #ffffff;         /* Card background - pure white */
+  --text: #222;            /* Main text color - near black */
+  --muted: #666;           /* Secondary text - gray */
+  --primary: #ff4fb3;      /* Primary brand color - pink */
+  --primary-2: #7a5cff;    /* Secondary brand color - purple */
+  --accent: #00c2ff;       /* Accent color - cyan */
+  --border: #ffd3e8;       /* Border color - light pink */
+}
+
+/* ============================================================================
+   GLOBAL RESET AND BASE STYLES
+   ============================================================================ */
+
+/* Universal box-sizing - makes width/height calculations easier */
+* {
+  box-sizing: border-box;  /* Width includes padding and border */
+}
+
+/* Body element - main container for all content */
+body {
+  /* Font stack: tries system fonts first, falls back to web-safe fonts */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  
+  /* iPhone optimizations */
+  font-size: 18px;         /* Larger base font for mobile readability */
+  line-height: 1.6;        /* More space between lines */
+  -webkit-font-smoothing: antialiased;  /* Smoother fonts on iPhone */
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);  /* Subtle tap feedback */
+}
+
+/* ============================================================================
+   HEADER SECTION
+   ============================================================================ */
+
+.app-header {
+  padding: 24px 20px;
+  
+  /* Gradient background using brand colors */
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  color: #fff;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 28px;         /* Larger for iPhone visibility */
+  font-weight: 700;
+}
+
+.header-actions {
+  margin-top: 12px;
+}
+
+.header-actions .btn-adv {
+  display: inline-block;
+  padding: 12px 18px;      /* Larger touch target */
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  
+  /* Smooth transition for hover effects */
+  transition: all 0.2s ease;
+}
+
+.header-actions .btn-adv:hover,
+.header-actions .btn-adv:active {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);  /* Subtle lift effect */
+}
+
+/* ============================================================================
+   MAIN CONTENT AREA
+   ============================================================================ */
+
+main {
+  padding: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ============================================================================
+   CARD COMPONENTS
+   ============================================================================
+   Cards are the white boxes that contain each section */
+
+.card {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;           /* Increased from 16px for more breathing room */
+  margin: 20px 0;          /* Increased from 16px for better separation */
+  
+  /* Subtle shadow for depth */
+  box-shadow: 0 6px 18px rgba(255, 79, 179, 0.08);
+}
+
+/* ============================================================================
+   TYPOGRAPHY (Text Styles)
+   ============================================================================ */
+
+h2 {
+  margin: 0 0 12px;        /* Increased from 8px for more space */
+  font-size: 22px;         /* Larger for iPhone */
+  font-weight: 700;
+}
+
+/* Muted text (less emphasis) */
+.muted {
+  font-weight: normal;
+  font-size: 0.9em;
+  color: var(--muted);
+  margin-left: 8px;
+}
+
+/* Category name styling */
+.category-name {
+  text-transform: capitalize;  /* First letter uppercase */
+}
+
+/* ============================================================================
+   BUTTONS (iPhone Optimized Touch Targets)
+   ============================================================================
+   Apple recommends minimum 44x44px for touch targets */
+
+button {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  
+  /* iPhone-optimized touch target (minimum 44px height) */
+  padding: 16px 24px;
+  min-height: 44px;
+  font-size: 18px;         /* Larger text for readability */
+  
+  font-weight: 600;
+  cursor: pointer;
+  
+  /* Visual feedback */
+  box-shadow: 0 4px 12px rgba(122, 92, 255, 0.25);
+  transition: all 0.2s ease;
+  
+  /* Prevent text selection on double-tap */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Button hover/active states */
+button:hover,
+button:active {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(122, 92, 255, 0.35);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Secondary button style (less prominent) */
+button.secondary {
+  background: var(--accent);
+}
+
+/* Small button variant */
+button.small {
+  padding: 10px 16px;
+  min-height: 44px;        /* Still maintain touch target */
+  font-size: 16px;
+}
+
+/* Rule button (+ button in transaction table) */
+button.rule-btn {
+  padding: 10px 16px;
+  min-height: 44px;        /* Touch-friendly */
+  min-width: 44px;         /* Square-ish for consistency */
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Button row container */
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;         /* Wrap to multiple lines on small screens */
+  gap: 12px;               /* Increased gap for better separation */
+  margin: 12px 0 16px;     /* Increased margins */
+}
+
+/* ============================================================================
+   FORM CONTROLS (Inputs, Selects, Textareas)
+   ============================================================================ */
+
+/* Text area for rules editing */
+textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  padding: 14px;           /* Larger padding for iPhone */
+  font-size: 16px;         /* Prevents auto-zoom on iPhone */
+  min-height: 120px;
+  
+  /* Prevent iOS auto-zoom on focus */
+  -webkit-appearance: none;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 79, 179, 0.1);
+}
+
+/* Select dropdown (iPhone optimized) */
+select {
+  padding: 14px 18px;      /* Larger padding */
+  min-height: 44px;        /* Touch target */
+  font-size: 18px;         /* Larger text, prevents auto-zoom */
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  
+  /* Custom dropdown arrow */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%23666' d='M0 0l6 8 6-8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;     /* Make room for arrow */
+  
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 79, 179, 0.1);
+}
+
+/* File input (iPhone optimized) */
+input[type="file"] {
+  font-size: 18px;         /* Larger base font */
+  padding: 8px;
+  border-radius: 12px;
+  width: 100%;             /* Full width on mobile */
+  min-height: 44px;
+}
+
+/* Style the "Choose File" button specifically */
+input[type="file"]::file-selector-button {
+  padding: 14px 20px;      /* Large touch target */
+  font-size: 18px;         /* Readable text */
+  min-height: 44px;        /* Touch-friendly */
+  border-radius: 12px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  margin-right: 12px;
+  
+  transition: all 0.2s ease;
+}
+
+input[type="file"]::file-selector-button:hover,
+input[type="file"]::file-selector-button:active {
+  background: var(--primary-2);
+  transform: translateY(-1px);
+}
+
+/* Filter controls container */
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;               /* Increased gap */
+  margin-top: 12px;
+  flex-wrap: wrap;         /* Wrap on small screens */
+}
+
+.filters label {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;     /* Keep label on one line */
+}
+
+/* ============================================================================
+   TABLES
+   ============================================================================ */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 12px;
+  font-size: 16px;         /* Larger for iPhone */
+}
+
+th, td {
+  padding: 14px 10px;      /* Larger padding for easier reading */
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+th {
+  background: #faf7ff;
+  border-bottom: 2px solid var(--border);
+  font-weight: 700;
+  font-size: 14px;         /* Slightly smaller for headers */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Right-align number columns */
+#categoryTotals table td:nth-child(2),
+#categoryTotals table th:nth-child(2),
+#categoryTotals table td:nth-child(3),
+#categoryTotals table th:nth-child(3),
+#transactionsTable td:nth-child(2) {
+  text-align: right;
+}
+
+/* Footer row (totals) */
+tfoot td {
+  font-weight: 700;
+  font-size: 18px;
+  padding-top: 16px;
+}
+
+/* Zebra striping for better readability */
+.zebra tr:nth-child(even) {
+  background: #fff7fb;
+}
+
+/* Category links in tables */
+a.catlink {
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--primary-2);
+  font-weight: 600;
+  
+  /* Larger tap target */
+  display: inline-block;
+  padding: 4px 0;
+  min-height: 44px;
+  line-height: 36px;       /* Vertically center */
+}
+
+a.catlink:hover,
+a.catlink:active {
+  text-decoration: underline;
+  color: var(--primary);
+}
+
+/* Category totals table specific styles */
+#categoryTotals table.cats {
+  width: 100%;
+  table-layout: auto;
+}
+
+#categoryTotals table.cats td.num,
+#categoryTotals table.cats th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;  /* Monospaced numbers */
+}
+
+/* ============================================================================
+   MONTH TOTALS DISPLAY
+   ============================================================================ */
+
+.month-totals {
+  margin: 12px 0 16px;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.month-totals .badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #223;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+/* ============================================================================
+   PAGINATION CONTROLS
+   ============================================================================ */
+
+.pager {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  margin: 16px 0 8px;
+  flex-wrap: wrap;
+}
+
+.pager button {
+  color: var(--text);
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  background: #fff;
+  min-width: 44px;         /* Touch-friendly */
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  text-align: center;
+}
+
+.pager button:hover:not([disabled]),
+.pager button:active:not([disabled]) {
+  background: #f0f0f0;
+  border-color: var(--primary);
+}
+
+.pager button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pager .page-btn.active {
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.pager span {
+  font-size: 15px;
+  color: var(--muted);
+  padding: 0 8px;
+}
+
+/* ============================================================================
+   COLLAPSIBLE DETAILS ELEMENT
+   ============================================================================ */
+
+details#rulesDetails summary {
+  cursor: pointer;
+  padding: 8px 0;
+  
+  /* Larger touch target for iPhone */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  
+  /* Custom arrow indicator */
+  list-style: none;
+}
+
+details#rulesDetails summary::-webkit-details-marker {
+  display: none;  /* Hide default arrow */
+}
+
+details#rulesDetails summary::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 8px;
+  transition: transform 0.2s;
+  font-size: 14px;
+}
+
+details#rulesDetails[open] summary::before {
+  transform: rotate(90deg);
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.app-controls {
+  /* Container for control elements */
+}
+
+.tip {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+/* ============================================================================
+   FOOTER
+   ============================================================================ */
+
+.app-footer {
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ============================================================================
+   CLOSE BUTTON AND STATUS MESSAGE
+   ============================================================================ */
+
+/* Close button styling (matches Advanced link style) */
+.btn-close {
+  display: inline-block;
+  padding: 12px 18px;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  margin-left: 12px;
+  transition: all 0.2s ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.btn-close:hover,
+.btn-close:active {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Status message container */
+.save-status {
+  padding: 12px 20px;
+  margin: 0 16px;
+  margin-top: -8px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  transition: opacity 0.3s ease;
+}
+
+/* Success state (rules updated) */
+.save-status.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: rgb(34, 197, 94);
+  border: 2px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Info state (no changes) */
+.save-status.info {
+  background: rgba(0, 194, 255, 0.1);
+  color: rgb(0, 150, 200);
+  border: 2px solid rgba(0, 194, 255, 0.3);
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN - TABLET AND DESKTOP
+   ============================================================================
+   These rules apply on larger screens (width > 768px) */
+
+@media (min-width: 768px) {
+  body {
+    font-size: 16px;       /* Slightly smaller on desktop */
+  }
+  
+  .app-header h1 {
+    font-size: 24px;
+  }
+  
+  h2 {
+    font-size: 20px;
+  }
+  
+  button {
+    font-size: 16px;
+    padding: 12px 20px;
+  }
+  
+  select {
+    font-size: 16px;
+    padding: 10px 16px;
+  }
+  
+  input[type="file"]::file-selector-button {
+    font-size: 16px;
+    padding: 10px 16px;
+  }
+  
+  .card {
+    padding: 24px;
+  }
+  
+  table {
+    font-size: 15px;
+  }
+  
+  th, td {
+    padding: 10px 12px;
+  }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================
+   Optimizations for printing */
+
+@media print {
+  .app-header,
+  .btn-row,
+  .pager,
+  button {
+    display: none;
+  }
+  
+  .card {
+    box-shadow: none;
+    border: 1px solid #ddd;
+  }
+  
+  body {
+    background: white;
+  }
+}
