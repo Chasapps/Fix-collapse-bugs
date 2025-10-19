@@ -1,12 +1,9 @@
 // ============================================================================
-// SPENDLITE V6.6.27 - Personal Expense Tracker
+// SPENDLITE V6.6.28 - Personal Expense Tracker
 // ============================================================================
-// This application helps you track and categorize your spending from bank CSV files.
-// Main features:
-// - Import CSV transactions from your bank
-// - Automatically categorize expenses using custom rules
-// - Filter by month and category
-// - Export totals and rules for backup
+// Changelog (2025-10-19):
+// - NEW: Rules are alphabetized automatically on startup (after rules are loaded).
+// - EXISTING: Rules are alphabetized every time a rule is added/updated.
 // ============================================================================
 
 // ============================================================================
@@ -20,7 +17,6 @@ const COL = {
 };
 
 const PAGE_SIZE = 10;
-const CATEGORY_PAGE_SIZE = 10;
 
 const LS_KEYS = { 
   RULES: 'spendlite_rules_v6626',
@@ -42,7 +38,6 @@ let CURRENT_RULES = [];
 let CURRENT_FILTER = null;
 let MONTH_FILTER = "";
 let CURRENT_PAGE = 1;
-let CATEGORY_PAGE = 1;
 
 // ============================================================================
 // SECTION 3: DATE HELPERS
@@ -92,6 +87,70 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// ============================================================================
+// SECTION 4b: RULES SORTING
+// ============================================================================
+
+/**
+ * Alphabetize rules in #rulesBox by keyword (case-insensitive).
+ * - Preserves comments (# ...) and blank lines by moving them to the top in their
+ *   original relative order, followed by the sorted rules block.
+ * - Normalizes "KEY => VALUE" to "KEY => VALUE" (1 space around arrow).
+ * Returns true if a change was made.
+ */
+function sortRulesBox({silent = false} = {}) {
+  const box = document.getElementById('rulesBox');
+  if (!box) return false;
+  const original = String(box.value || '');
+  const lines = original.split(/\r?\n/);
+
+  const comments = [];
+  const ruleLines = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) {
+      comments.push(line);
+      continue;
+    }
+    // split on first =>
+    const parts = line.split(/=>/i);
+    if (parts.length >= 2) {
+      const keyword = parts[0].trim();
+      const category = parts.slice(1).join('=>').trim(); // in case => appears inside
+      if (keyword && category) {
+        ruleLines.push(`${keyword.toUpperCase()} => ${category.toUpperCase()}`);
+      }
+    } else {
+      // Not a valid rule line; keep as comment to avoid data loss
+      comments.push(line);
+    }
+  }
+
+  const sorted = ruleLines.sort((a, b) => {
+    const ka = a.split(/=>/)[0].trim().toLowerCase();
+    const kb = b.split(/=>/)[0].trim().toLowerCase();
+    return ka.localeCompare(kb, undefined, { sensitivity: 'base' });
+  });
+
+  // Reassemble: comments (as-is), blank line if both parts exist, then sorted rules
+  const parts = [];
+  if (comments.length) parts.push(...comments);
+  if (comments.length && sorted.length) parts.push('');
+  if (sorted.length) parts.push(...sorted);
+
+  const next = parts.join('\n');
+  if (next !== original) {
+    box.value = next;
+    try { localStorage.setItem(LS_KEYS.RULES, box.value); } catch {}
+    if (!silent) {
+      try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
+    }
+    return true;
+  }
+  return false;
 }
 
 // ============================================================================
@@ -470,6 +529,8 @@ function importRulesFromFile(file) {
     const box = document.getElementById('rulesBox');
     box.value = text;
     try { RULES_CHANGED = true; } catch {}
+    // Sort after import as well
+    sortRulesBox();
     try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
     applyRulesAndRender();
   };
@@ -519,6 +580,8 @@ function addOrUpdateRuleLine(keywordUpper, categoryUpper) {
   }
   if (!updated) lines.push(`${keywordUpper} => ${categoryUpper}`);
   box.value = lines.join("\n");
+  // Ensure alphabetical order after any change
+  sortRulesBox();
   try { RULES_CHANGED = true; } catch {}
   try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
   try { localStorage.setItem(LS_KEYS.RULES, box.value); } catch {}
@@ -597,6 +660,7 @@ function assignCategory_OLD(idx) {
   }
   if (!updated) lines.push(`${keyword} => ${category}`);
   box.value = lines.join("\n");
+  sortRulesBox();
   try { RULES_CHANGED = true; } catch {}
   try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
   try { localStorage.setItem(LS_KEYS.RULES, box.value); } catch {}
@@ -699,26 +763,40 @@ document.getElementById('monthFilter').addEventListener('change', (e) => {
 // SECTION 17: INIT
 // ============================================================================
 
+let INITIAL_RULES = '';
+let RULES_CHANGED = false;
+
 window.addEventListener('DOMContentLoaded', async () => {
   let restored = false;
+  const box = document.getElementById('rulesBox');
+
   try {
     const saved = localStorage.getItem(LS_KEYS.RULES);
     if (saved && saved.trim()) {
-      document.getElementById('rulesBox').value = saved;
+      box.value = saved;
       restored = true;
     }
   } catch {}
+
   if (!restored) {
     try {
       const res = await fetch('rules.txt');
       const text = await res.text();
-      document.getElementById('rulesBox').value = text;
+      box.value = text;
       restored = true;
     } catch {}
   }
+
   if (!restored) {
-    document.getElementById('rulesBox').value = SAMPLE_RULES;
+    box.value = SAMPLE_RULES;
   }
+
+  // NEW: Sort rules once on startup, if needed
+  sortRulesBox({silent: true});
+
+  // Track initial snapshot
+  INITIAL_RULES = box.value;
+
   try {
     const savedFilter = localStorage.getItem(LS_KEYS.FILTER);
     CURRENT_FILTER = savedFilter && savedFilter.trim() ? savedFilter.toUpperCase() : null;
@@ -727,6 +805,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const savedMonth = localStorage.getItem(LS_KEYS.MONTH);
     MONTH_FILTER = savedMonth || "";
   } catch {}
+
   updateFilterUI();
   CURRENT_PAGE = 1;
   updateMonthBanner();
@@ -745,13 +824,9 @@ window.addEventListener('beforeunload', () => {
 // SECTION 23: CLOSE APP WITH AUTO-SAVE
 // ============================================================================
 
-let INITIAL_RULES = '';
-let RULES_CHANGED = false;
-
 window.addEventListener('load', () => {
   const rulesBox = document.getElementById('rulesBox');
   if (rulesBox) {
-    INITIAL_RULES = rulesBox.value;
     rulesBox.addEventListener('input', () => {
       RULES_CHANGED = rulesBox.value !== INITIAL_RULES;
     });
