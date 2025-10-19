@@ -1,9 +1,12 @@
 // ============================================================================
-// SPENDLITE V6.6.28 - Personal Expense Tracker
+// SPENDLITE V6.6.27 - Personal Expense Tracker
 // ============================================================================
-// Changelog (2025-10-19):
-// - NEW: Rules are alphabetized automatically on startup (after rules are loaded).
-// - EXISTING: Rules are alphabetized every time a rule is added/updated.
+// This application helps you track and categorize your spending from bank CSV files.
+// Main features:
+// - Import CSV transactions from your bank
+// - Automatically categorize expenses using custom rules
+// - Filter by month and category
+// - Export totals and rules for backup
 // ============================================================================
 
 // ============================================================================
@@ -17,6 +20,7 @@ const COL = {
 };
 
 const PAGE_SIZE = 10;
+const CATEGORY_PAGE_SIZE = 10;
 
 const LS_KEYS = { 
   RULES: 'spendlite_rules_v6626',
@@ -38,6 +42,7 @@ let CURRENT_RULES = [];
 let CURRENT_FILTER = null;
 let MONTH_FILTER = "";
 let CURRENT_PAGE = 1;
+let CATEGORY_PAGE = 1;
 
 // ============================================================================
 // SECTION 3: DATE HELPERS
@@ -87,70 +92,6 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-}
-
-// ============================================================================
-// SECTION 4b: RULES SORTING
-// ============================================================================
-
-/**
- * Alphabetize rules in #rulesBox by keyword (case-insensitive).
- * - Preserves comments (# ...) and blank lines by moving them to the top in their
- *   original relative order, followed by the sorted rules block.
- * - Normalizes "KEY => VALUE" to "KEY => VALUE" (1 space around arrow).
- * Returns true if a change was made.
- */
-function sortRulesBox({silent = false} = {}) {
-  const box = document.getElementById('rulesBox');
-  if (!box) return false;
-  const original = String(box.value || '');
-  const lines = original.split(/\r?\n/);
-
-  const comments = [];
-  const ruleLines = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) {
-      comments.push(line);
-      continue;
-    }
-    // split on first =>
-    const parts = line.split(/=>/i);
-    if (parts.length >= 2) {
-      const keyword = parts[0].trim();
-      const category = parts.slice(1).join('=>').trim(); // in case => appears inside
-      if (keyword && category) {
-        ruleLines.push(`${keyword.toUpperCase()} => ${category.toUpperCase()}`);
-      }
-    } else {
-      // Not a valid rule line; keep as comment to avoid data loss
-      comments.push(line);
-    }
-  }
-
-  const sorted = ruleLines.sort((a, b) => {
-    const ka = a.split(/=>/)[0].trim().toLowerCase();
-    const kb = b.split(/=>/)[0].trim().toLowerCase();
-    return ka.localeCompare(kb, undefined, { sensitivity: 'base' });
-  });
-
-  // Reassemble: comments (as-is), blank line if both parts exist, then sorted rules
-  const parts = [];
-  if (comments.length) parts.push(...comments);
-  if (comments.length && sorted.length) parts.push('');
-  if (sorted.length) parts.push(...sorted);
-
-  const next = parts.join('\n');
-  if (next !== original) {
-    box.value = next;
-    try { localStorage.setItem(LS_KEYS.RULES, box.value); } catch {}
-    if (!silent) {
-      try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
-    }
-    return true;
-  }
-  return false;
 }
 
 // ============================================================================
@@ -269,29 +210,21 @@ function matchesKeyword(descLower, keywordLower) {
   const tokens = String(keywordLower).toLowerCase().split(/\s+/).filter(Boolean);
   if (!tokens.length) return false;
   const delim = '[^A-Za-z0-9&._]';
-  if (tokens.length === 3) {
+
+  // NEW: special-case for TWO-word keys (ordered, allowing separators).
+  // This replaces the old three-word special case.
+  if (tokens.length === 2) {
     const safe = tokens.map(tok => tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const re = new RegExp(`(?:^|${delim})${safe[0]}(?:${delim})+${safe[1]}(?:${delim})+${safe[2]}(?:${delim}|$)`, 'i');
+    const re = new RegExp(`(?:^|${delim})${safe[0]}(?:${delim})+${safe[1]}(?:${delim}|$)`, 'i');
     return re.test(text);
   }
+
+  // All other cases: require all tokens to appear as whole-ish words, in any order.
   return tokens.every(tok => {
     const safe = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(`(?:^|${delim})${safe}(?:${delim}|$)`, 'i');
     return re.test(text);
   });
-}
-
-function categorise(txns, rules) {
-  for (const t of txns) {
-    const descLower = String(t.desc || t.description || "").toLowerCase();
-    const amount = Math.abs(Number(t.amount || t.debit || 0));
-    let matched = null;
-    for (const r of rules) {
-      if (matchesKeyword(descLower, r.keyword)) { matched = r.category; }
-    }
-    if (matched && String(matched).toUpperCase() === "PETROL" && amount <= 2) matched = "COFFEE";
-    t.category = matched || "UNCATEGORISED";
-  }
 }
 
 // ============================================================================
@@ -415,8 +348,8 @@ function renderTransactionsTable(txns = monthFilteredTxns()) {
   let html = '<tr><th>Date</th><th>Amount</th><th>Category</th><th>Description</th><th></th></tr>';
   pageItems.forEach((t) => {
     const idx = CURRENT_TXNS.indexOf(t);
-    const cat = (t.category || 'UNCATEGORISED').toUpperCase();
-    const displayCat = toTitleCase(cat);
+    let cat = String(t.category || '').trim().toUpperCase();
+    const displayCat = (cat && cat !== 'UNCATEGORISED') ? toTitleCase(cat) : '';
     html += `<tr>
       <td>${escapeHtml(t.date)}</td>
       <td>${t.amount.toFixed(2)}</td>
@@ -529,8 +462,6 @@ function importRulesFromFile(file) {
     const box = document.getElementById('rulesBox');
     box.value = text;
     try { RULES_CHANGED = true; } catch {}
-    // Sort after import as well
-    sortRulesBox();
     try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
     applyRulesAndRender();
   };
@@ -547,15 +478,15 @@ function deriveKeywordFromTxn(txn) {
   if (!desc) return "";
   const tokens = (desc.match(/[A-Za-z0-9&._]+/g) || []).map(s => s.toLowerCase());
   if (!tokens.length) return "";
-  function join3(k) { return tokens.slice(k, k + 3).filter(Boolean).map(s => s.toUpperCase()).join(' '); }
+  function join2(k) { return tokens.slice(k, k + 2).filter(Boolean).map(s => s.toUpperCase()).join(' '); }
   const up = desc.toUpperCase();
   const paypalIdx = tokens.indexOf('paypal');
-  if (paypalIdx !== -1) return join3(paypalIdx);
+  if (paypalIdx !== -1) return join2(paypalIdx);
   if (/\bVISA-/.test(up)) {
     const visaTokIdx = tokens.indexOf('visa');
-    if (visaTokIdx !== -1) return join3(Math.min(visaTokIdx + 1, Math.max(0, tokens.length - 1)));
+    if (visaTokIdx !== -1) return join2(Math.min(visaTokIdx + 1, Math.max(0, tokens.length - 1)));
   }
-  return join3(0);
+  return join2(0);
 }
 
 function addOrUpdateRuleLine(keywordUpper, categoryUpper) {
@@ -580,8 +511,6 @@ function addOrUpdateRuleLine(keywordUpper, categoryUpper) {
   }
   if (!updated) lines.push(`${keywordUpper} => ${categoryUpper}`);
   box.value = lines.join("\n");
-  // Ensure alphabetical order after any change
-  sortRulesBox();
   try { RULES_CHANGED = true; } catch {}
   try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
   try { localStorage.setItem(LS_KEYS.RULES, box.value); } catch {}
@@ -599,7 +528,7 @@ function assignCategory(idx) {
   const specials = new Set(['+ Add new category...', 'Uncategorised']);
   const rest = base.filter(c => !specials.has(c)).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   const categories = ['+ Add new category...', 'Uncategorised', ...rest];
-  const current = ((CURRENT_TXNS && CURRENT_TXNS[idx] && CURRENT_TXNS[idx].category) || '').trim() || 'Uncategorised';
+  const current = ((CURRENT_TXNS && CURRENT_TXNS[idx] && CURRENT_TXNS[idx].category) || '').trim();
 
   SL_CatPicker.openCategoryPicker({
     categories,
@@ -642,7 +571,7 @@ function assignCategory_OLD(idx) {
   const keywordInput = prompt("Enter keyword to match:", suggestedKeyword);
   if (!keywordInput) return;
   const keyword = keywordInput.trim().toUpperCase();
-  const defaultCat = (txn.category || "UNCATEGORISED").toUpperCase();
+  const defaultCat = "";
   const catInput = prompt("Enter category name:", defaultCat);
   if (!catInput) return;
   const category = catInput.trim().toUpperCase();
@@ -660,7 +589,6 @@ function assignCategory_OLD(idx) {
   }
   if (!updated) lines.push(`${keyword} => ${category}`);
   box.value = lines.join("\n");
-  sortRulesBox();
   try { RULES_CHANGED = true; } catch {}
   try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
   try { localStorage.setItem(LS_KEYS.RULES, box.value); } catch {}
@@ -686,29 +614,15 @@ function saveTxnsToLocalStorage() {
 // SECTION 15: COLLAPSE TOGGLE
 // ============================================================================
 
-function isTxnsCollapsed() {
-  try { return localStorage.getItem(LS_KEYS.TXNS_COLLAPSED) !== 'false'; }
+// isTxnsCollapsed removed
   catch { return true; }
 }
 
-function setTxnsCollapsed(v) {
-  try { localStorage.setItem(LS_KEYS.TXNS_COLLAPSED, v ? 'true' : 'false'); } catch {}
+// setTxnsCollapsed removed
 }
 
-function applyTxnsCollapsedUI() {
-  const body = document.getElementById('transactionsBody');
-  const toggle = document.getElementById('txnsToggleBtn');
-  const collapsed = isTxnsCollapsed();
-  if (body) body.style.display = collapsed ? 'none' : '';
-  if (toggle) toggle.textContent = collapsed ? 'Show transactions' : 'Hide transactions';
-}
-
-function toggleTransactions() {
-  const collapsed = isTxnsCollapsed();
-  setTxnsCollapsed(!collapsed);
-  applyTxnsCollapsedUI();
-}
-
+// applyTxnsCollapsedUI removed
+// toggleTransactions removed
 // ============================================================================
 // SECTION 16: EVENTS
 // ============================================================================
@@ -763,40 +677,26 @@ document.getElementById('monthFilter').addEventListener('change', (e) => {
 // SECTION 17: INIT
 // ============================================================================
 
-let INITIAL_RULES = '';
-let RULES_CHANGED = false;
-
 window.addEventListener('DOMContentLoaded', async () => {
   let restored = false;
-  const box = document.getElementById('rulesBox');
-
   try {
     const saved = localStorage.getItem(LS_KEYS.RULES);
     if (saved && saved.trim()) {
-      box.value = saved;
+      document.getElementById('rulesBox').value = saved;
       restored = true;
     }
   } catch {}
-
   if (!restored) {
     try {
       const res = await fetch('rules.txt');
       const text = await res.text();
-      box.value = text;
+      document.getElementById('rulesBox').value = text;
       restored = true;
     } catch {}
   }
-
   if (!restored) {
-    box.value = SAMPLE_RULES;
+    document.getElementById('rulesBox').value = SAMPLE_RULES;
   }
-
-  // NEW: Sort rules once on startup, if needed
-  sortRulesBox({silent: true});
-
-  // Track initial snapshot
-  INITIAL_RULES = box.value;
-
   try {
     const savedFilter = localStorage.getItem(LS_KEYS.FILTER);
     CURRENT_FILTER = savedFilter && savedFilter.trim() ? savedFilter.toUpperCase() : null;
@@ -805,7 +705,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     const savedMonth = localStorage.getItem(LS_KEYS.MONTH);
     MONTH_FILTER = savedMonth || "";
   } catch {}
-
   updateFilterUI();
   CURRENT_PAGE = 1;
   updateMonthBanner();
@@ -824,9 +723,13 @@ window.addEventListener('beforeunload', () => {
 // SECTION 23: CLOSE APP WITH AUTO-SAVE
 // ============================================================================
 
+let INITIAL_RULES = '';
+let RULES_CHANGED = false;
+
 window.addEventListener('load', () => {
   const rulesBox = document.getElementById('rulesBox');
   if (rulesBox) {
+    INITIAL_RULES = rulesBox.value;
     rulesBox.addEventListener('input', () => {
       RULES_CHANGED = rulesBox.value !== INITIAL_RULES;
     });
