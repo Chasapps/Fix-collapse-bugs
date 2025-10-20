@@ -135,20 +135,86 @@ function getFirstTxnMonth(txns = CURRENT_TXNS) {
 // SECTION 6: CSV LOADING
 // ============================================================================
 
-function loadCsvText(csvText) {
-  const rows = Papa.parse(csvText.trim(), { skipEmptyLines: true }).data;
-  const startIdx = rows.length && isNaN(parseAmount(rows[0][COL.DEBIT])) ? 1 : 0;
+\n// ============================================================================\n// Robust CSV helpers ----------------------------------------------------------
+function stripBOM(s) {
+  if (s && s.charCodeAt(0) === 0xFEFF) return s.slice(1);
+  return s;
+}
+
+function simpleParseCSV(input) {
+  input = stripBOM(String(input || ''));
+  if (!input.trim()) return [];
+
+  const firstLine = input.split(/\r?\n/).find(Boolean) || '';
+  let delim = ',';
+  if ((firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length) delim = ';';
+  if ((firstLine.match(/\t/g) || []).length > (firstLine.match(new RegExp('\\' + delim, 'g')) || []).length) delim = '\t';
+
+  const rows = [];
+  let i = 0, field = '', row = [], inQuotes = false;
+  const pushField = () => { row.push(field); field = ''; };
+  const pushRow = () => { rows.push(row); row = []; };
+  const s = input.replace(/\r\n?/g, '\n');
+  while (i < s.length) {
+    const ch = s[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (s[i+1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += ch; i++; continue;
+    } else {
+      if (ch === '"') { inQuotes = true; i++; continue; }
+      if (ch === delim) { pushField(); i++; continue; }
+      if (ch === '\n') { pushField(); pushRow(); i++; continue; }
+      field += ch; i++; continue;
+    }
+  }
+  pushField();
+  pushRow();
+  if (rows.length && rows[rows.length-1].length === 1 && rows[rows.length-1][0] === '') rows.pop();
+  return rows;
+}
+
+function looksLikeHeaderRow(row) {
+  if (!row) return false;
+  const dateCell = row[COL.DATE];
+  const amountCell = row[COL.DEBIT];
+  const hasWords = (v) => /[A-Za-z]/.test(String(v||''));
+  const amountNum = Number(String(amountCell||'').replace(/[^\d\-.,]/g, '').replace(/,/g, ''));
+  return (!Number.isFinite(amountNum) || String(amountCell||'').trim()==='') && (hasWords(dateCell) || hasWords(amountCell));
+}\nfunction loadCsvText(csvText) {
+  const raw = stripBOM(String(csvText || ''));
+
+  let rows = [];
+  try {
+    if (typeof Papa !== 'undefined' && Papa && typeof Papa.parse === 'function') {
+      const out = Papa.parse(raw.trim(), { skipEmptyLines: true });
+      rows = (out && out.data) ? out.data : [];
+    }
+  } catch (e) {
+    console.warn('Papa.parse failed, using simple parser:', e);
+  }
+  if (!rows || !rows.length) {
+    rows = simpleParseCSV(raw);
+  }
+
+  rows = rows.filter(r => Array.isArray(r) && r.some(cell => String(cell||'').trim() !== ''));
+
+  const startIdx = rows.length && looksLikeHeaderRow(rows[0]) ? 1 : 0;
+
   const txns = [];
   for (let i = startIdx; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || r.length < 10) continue;
-    const effectiveDate = r[COL.DATE] || '';
+    const r = rows[i] || [];
+    while (r.length <= Math.max(COL.DATE, COL.DEBIT, COL.LONGDESC)) r.push('');
+    const effectiveDate = (r[COL.DATE] || '').trim();
     const debit = parseAmount(r[COL.DEBIT]);
     const longDesc = (r[COL.LONGDESC] || '').trim();
     if ((effectiveDate || longDesc) && Number.isFinite(debit) && debit !== 0) {
-       txns.push({ date: effectiveDate, amount: debit, description: longDesc });
+      txns.push({ date: effectiveDate, amount: debit, description: longDesc });
     }
   }
+
   CURRENT_TXNS = txns;
   saveTxnsToLocalStorage();
   try { updateMonthBanner(); } catch {}
@@ -211,15 +277,14 @@ function matchesKeyword(descLower, keywordLower) {
   if (!tokens.length) return false;
   const delim = '[^A-Za-z0-9&._]';
 
-  // NEW: special-case for TWO-word keys (ordered, allowing separators).
-  // This replaces the old three-word special case.
+  // SPECIAL CASE: exactly TWO tokens must appear in order with any separators between
   if (tokens.length === 2) {
     const safe = tokens.map(tok => tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const re = new RegExp(`(?:^|${delim})${safe[0]}(?:${delim})+${safe[1]}(?:${delim}|$)`, 'i');
     return re.test(text);
   }
 
-  // All other cases: require all tokens to appear as whole-ish words, in any order.
+  // Otherwise: require every token to appear as a "word-ish" match, in any order
   return tokens.every(tok => {
     const safe = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(`(?:^|${delim})${safe}(?:${delim}|$)`, 'i');
@@ -478,14 +543,22 @@ function deriveKeywordFromTxn(txn) {
   if (!desc) return "";
   const tokens = (desc.match(/[A-Za-z0-9&._]+/g) || []).map(s => s.toLowerCase());
   if (!tokens.length) return "";
-  function join2(k) { return tokens.slice(k, k + 2).filter(Boolean).map(s => s.toUpperCase()).join(' '); }
+
+  function join2(k) { 
+    return tokens.slice(k, k + 2).filter(Boolean).map(s => s.toUpperCase()).join(' '); 
+  }
+
   const up = desc.toUpperCase();
   const paypalIdx = tokens.indexOf('paypal');
   if (paypalIdx !== -1) return join2(paypalIdx);
-  if (/\bVISA-/.test(up)) {
+
+  if (/\bVISA-/.test(up) || tokens.indexOf('visa') !== -1) {
     const visaTokIdx = tokens.indexOf('visa');
-    if (visaTokIdx !== -1) return join2(Math.min(visaTokIdx + 1, Math.max(0, tokens.length - 1)));
+    if (visaTokIdx !== -1) {
+      return join2(Math.min(visaTokIdx + 1, Math.max(0, tokens.length - 1)));
+    }
   }
+
   return join2(0);
 }
 
