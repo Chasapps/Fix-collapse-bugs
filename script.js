@@ -489,6 +489,39 @@ function exportTotals() {
   const { rows, grand } = computeCategoryTotals(txns);
   const label = friendlyMonthOrAll(MONTH_FILTER || getFirstTxnMonth(txns) || new Date());
   const header = `SpendLite Category Totals (${label})`;
+
+  // Use tab-delimited format so columns align reliably across editors (iPhone Notes, Notepad, etc.)
+  const EOL = '
+';
+  const lines = [];
+  lines.push(header);
+  lines.push('='.repeat(header.length));
+  lines.push(['Category','Amount','%'].join('	'));
+
+  for (const [cat, total] of rows) {
+    const pct = grand ? (total / grand * 100) : 0;
+    // Ensure consistent formatting
+    const catName = toTitleCase(cat);
+    const amtStr = total.toFixed(2);
+    const pctStr = pct.toFixed(1) + '%';
+    lines.push([catName, amtStr, pctStr].join('	'));
+  }
+
+  lines.push('');
+  lines.push(['TOTAL', grand.toFixed(2), '100%'].join('	'));
+
+  const content = lines.join(EOL) + EOL;
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `category_totals_${forFilename(label)}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+= computeCategoryTotals(txns);
+  const label = friendlyMonthOrAll(MONTH_FILTER || getFirstTxnMonth(txns) || new Date());
+  const header = `SpendLite Category Totals (${label})`;
   const catWidth = Math.max(8, ...rows.map(([cat]) => toTitleCase(cat).length), 'Category'.length);
   const amtWidth = 12;
   const pctWidth = 6;
