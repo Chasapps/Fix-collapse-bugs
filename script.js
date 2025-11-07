@@ -1,14 +1,9 @@
 // ============================================================================
-// SPENDLITE V6.6.28 - Personal Expense Tracker (CLEANED)
+// SPENDLITE V6.6.28 - Personal Expense Tracker
 // ============================================================================
 // Changelog (2025-10-19):
 // - NEW: Rules are alphabetized automatically on startup (after rules are loaded).
 // - EXISTING: Rules are alphabetized every time a rule is added/updated.
-// - 2025-11-07 Fixes:
-//   * Fixed a syntax error in exportTotals() (bad newline literal).
-//   * Removed a stray partial function block after exportTotals() that broke parsing.
-//   * Ensured tab-delimited output uses '\\t' and line breaks use '\\n' explicitly.
-//   * De-duplicated the file (second full copy removed).
 // ============================================================================
 
 // ============================================================================
@@ -57,12 +52,12 @@ function formatMonthLabel(ym) {
 
 function friendlyMonthOrAll(label) {
   if (!label) return 'All months';
-  if (/^\\d{4}-\\d{2}$/.test(label)) return formatMonthLabel(label);
+  if (/^\d{4}-\d{2}$/.test(label)) return formatMonthLabel(label);
   return String(label);
 }
 
 function forFilename(label) {
-  return String(label).replace(/\\s+/g, '_');
+  return String(label).replace(/\s+/g, '_');
 }
 
 // ============================================================================
@@ -74,14 +69,14 @@ function toTitleCase(str) {
   return String(str)
     .toLowerCase()
     .replace(/[_-]+/g, ' ')
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\\b([a-z])/g, (m, p1) => p1.toUpperCase());
+    .replace(/\b([a-z])/g, (m, p1) => p1.toUpperCase());
 }
 
 function parseAmount(s) {
   if (s == null) return 0;
-  s = String(s).replace(/[^\\d\\-,.]/g, '').replace(/,/g, '');
+  s = String(s).replace(/[^\d\-,.]/g, '').replace(/,/g, '');
   return Number(s) || 0;
 }
 
@@ -109,7 +104,7 @@ function sortRulesBox({silent = false} = {}) {
   const box = document.getElementById('rulesBox');
   if (!box) return false;
   const original = String(box.value || '');
-  const lines = original.split(/\\r?\\n/);
+  const lines = original.split(/\r?\n/);
 
   const comments = [];
   const ruleLines = [];
@@ -146,7 +141,7 @@ function sortRulesBox({silent = false} = {}) {
   if (comments.length && sorted.length) parts.push('');
   if (sorted.length) parts.push(...sorted);
 
-  const next = parts.join('\\n');
+  const next = parts.join('\n');
   if (next !== original) {
     box.value = next;
     try { localStorage.setItem(LS_KEYS.RULES, box.value); } catch {}
@@ -167,14 +162,14 @@ function parseDateSmart(s) {
   const str = String(s).trim();
   let m;
 
-  m = str.match(/^(\\d{4})[\\/-](\\d{1,2})[\\/-](\\d{1,2})$/);
+  m = str.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
   if (m) return new Date(+m[1], +m[2]-1, +m[3]);
 
-  m = str.match(/^(\\d{1,2})[\\/-](\\d{1,2})[\\/-](\\d{4})$/);
+  m = str.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
   if (m) return new Date(+m[3], +m[2]-1, +m[1]);
 
-  const s2 = str.replace(/^\\d{1,2}:\\d{2}\\s*(am|pm)\\s*/i, '');
-  m = s2.match(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)?\\s*(\\d{1,2})\\s+(January|February|March|April|May|June|July|August|September|October|November|December),?\\s+(\\d{4})/i);
+  const s2 = str.replace(/^\d{1,2}:\d{2}\s*(am|pm)\s*/i, '');
+  m = s2.match(/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)?\s*(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December),?\s+(\d{4})/i);
   if (m) {
     const day = +m[1], monthName = m[2].toLowerCase(), y = +m[3];
     const monthMap = {january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
@@ -253,7 +248,7 @@ function monthFilteredTxns() {
 // ============================================================================
 
 function parseRules(text) {
-  const lines = String(text || "").split(/\\r?\\n/);
+  const lines = String(text || "").split(/\r?\n/);
   const rules = [];
   for (const line of lines) {
     const trimmed = line.trim();
@@ -271,16 +266,16 @@ function parseRules(text) {
 function matchesKeyword(descLower, keywordLower) {
   if (!keywordLower) return false;
   const text = String(descLower || '').toLowerCase();
-  const tokens = String(keywordLower).toLowerCase().split(/\\s+/).filter(Boolean);
+  const tokens = String(keywordLower).toLowerCase().split(/\s+/).filter(Boolean);
   if (!tokens.length) return false;
   const delim = '[^A-Za-z0-9&._]';
   if (tokens.length === 3) {
-    const safe = tokens.map(tok => tok.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'));
+    const safe = tokens.map(tok => tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const re = new RegExp(`(?:^|${delim})${safe[0]}(?:${delim})+${safe[1]}(?:${delim})+${safe[2]}(?:${delim}|$)`, 'i');
     return re.test(text);
   }
   return tokens.every(tok => {
-    const safe = tok.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+    const safe = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(`(?:^|${delim})${safe}(?:${delim}|$)`, 'i');
     return re.test(text);
   });
@@ -489,36 +484,25 @@ function renderPager(totalPages) {
 // SECTION 12: EXPORT/IMPORT
 // ============================================================================
 
-/**
- * EXPORT TOTALS — fixed to use explicit '\n' for newlines and '\t' for tabs.
- * A malformed string literal here will break the entire script and prevent
- * the CSV loader from running. Keep these escapes exact.
- */
 function exportTotals() {
   const txns = monthFilteredTxns();
   const { rows, grand } = computeCategoryTotals(txns);
   const label = friendlyMonthOrAll(MONTH_FILTER || getFirstTxnMonth(txns) || new Date());
   const header = `SpendLite Category Totals (${label})`;
-
-  const EOL = '\\n';      // ✅ correct newline literal
-  const SEP = '\\t';      // ✅ tab-delimited
+  const catWidth = Math.max(8, ...rows.map(([cat]) => toTitleCase(cat).length), 'Category'.length);
+  const amtWidth = 12;
+  const pctWidth = 6;
   const lines = [];
   lines.push(header);
   lines.push('='.repeat(header.length));
-  lines.push(['Category','Amount','%'].join(SEP));
-
+  lines.push('Category'.padEnd(catWidth) + ' ' + 'Amount'.padStart(amtWidth) + ' ' + '%'.padStart(pctWidth));
   for (const [cat, total] of rows) {
     const pct = grand ? (total / grand * 100) : 0;
-    const catName = toTitleCase(cat);
-    const amtStr = total.toFixed(2);
-    const pctStr = pct.toFixed(1) + '%';
-    lines.push([catName, amtStr, pctStr].join(SEP));
+    lines.push(toTitleCase(cat).padEnd(catWidth) + ' ' + total.toFixed(2).padStart(amtWidth) + ' ' + (pct.toFixed(1) + '%').padStart(pctWidth));
   }
   lines.push('');
-  lines.push(['TOTAL', grand.toFixed(2), '100%'].join(SEP));
-
-  const content = lines.join(EOL) + EOL;
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  lines.push('TOTAL'.padEnd(catWidth) + ' ' + grand.toFixed(2).padStart(amtWidth) + ' ' + '100%'.padStart(pctWidth));
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `category_totals_${forFilename(label)}.txt`;
@@ -567,7 +551,7 @@ function deriveKeywordFromTxn(txn) {
   const up = desc.toUpperCase();
   const paypalIdx = tokens.indexOf('paypal');
   if (paypalIdx !== -1) return join3(paypalIdx);
-  if (/\\bVISA-/.test(up)) {
+  if (/\bVISA-/.test(up)) {
     const visaTokIdx = tokens.indexOf('visa');
     if (visaTokIdx !== -1) return join3(Math.min(visaTokIdx + 1, Math.max(0, tokens.length - 1)));
   }
@@ -578,7 +562,7 @@ function addOrUpdateRuleLine(keywordUpper, categoryUpper) {
   if (!keywordUpper || !categoryUpper) return false;
   const box = document.getElementById('rulesBox');
   if (!box) return false;
-  const lines = String(box.value || '').split(/\\r?\\n/);
+  const lines = String(box.value || '').split(/\r?\n/);
   let updated = false;
   const kwLower = keywordUpper.toLowerCase();
   for (let i = 0; i < lines.length; i++) {
@@ -595,7 +579,7 @@ function addOrUpdateRuleLine(keywordUpper, categoryUpper) {
     }
   }
   if (!updated) lines.push(`${keywordUpper} => ${categoryUpper}`);
-  box.value = lines.join("\\n");
+  box.value = lines.join("\n");
   // Ensure alphabetical order after any change
   sortRulesBox();
   try { RULES_CHANGED = true; } catch {}
@@ -663,7 +647,7 @@ function assignCategory_OLD(idx) {
   if (!catInput) return;
   const category = catInput.trim().toUpperCase();
   const box = document.getElementById('rulesBox');
-  const lines = String(box.value || "").split(/\\r?\\n/);
+  const lines = String(box.value || "").split(/\r?\n/);
   let updated = false;
   for (let i = 0; i < lines.length; i++) {
     const line = (lines[i] || "").trim();
@@ -675,7 +659,7 @@ function assignCategory_OLD(idx) {
     }
   }
   if (!updated) lines.push(`${keyword} => ${category}`);
-  box.value = lines.join("\\n");
+  box.value = lines.join("\n");
   sortRulesBox();
   try { RULES_CHANGED = true; } catch {}
   try { box.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
