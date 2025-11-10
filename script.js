@@ -1,3 +1,33 @@
+/*SpendLite (Beginner‑Annotated Edition)
+File: script.js
+Generated: 2025-11-10 02:22
+
+WHAT THIS FILE IS
+- Core application logic for SpendLite (parsing CSV, categorising transactions, computing totals, and rendering the UI).
+
+BEGINNER MAP OF THE CODE
+- SECTION 1: Constants (column indexes, localStorage keys, page size)
+- SECTION 2: App state (arrays and variables that hold current data)
+- SECTION 3..15: Utility helpers (parsing dates/amounts, sorting rules, exporting, rendering tables/pager, etc.)
+- EVENT WIRING: Code that attaches click/input listeners to elements in index.html
+
+KEY TAKEAWAYS
+- Keep "pure helpers" (formatting, parsing) separate from "rendering" (DOM updates).
+- Always sanitise and normalise input (e.g., parseAmount to strip commas/currency symbols).
+- Derive UI from state: compute CURRENT_TXNS -> apply rules -> render tables.
+- LocalStorage can persist user data between sessions, but always handle missing/invalid data safely.
+- Pagination reduces DOM size for large tables and keeps UI snappy.
+
+DEBUGGING CHECKLIST
+- If rules won’t save: check localStorage keys and browser storage limits.
+- If totals look wrong: log intermediate values (console.log) for the category totals and net.
+- If month filtering fails: verify date parsing (parseDateSmart) recognises your bank’s formats.
+
+CHANGE WITH CONFIDENCE
+- Add new columns by extending table rendering only; keep parsing logic consistent.
+- When changing rules format, provide a migration or keep backward compatibility.
+*/
+
 // ============================================================================
 // SPENDLITE V6.6.28 - Personal Expense Tracker
 // ============================================================================
@@ -7,15 +37,29 @@
 // ============================================================================
 
 // ============================================================================
+/** BEGINNER_INLINE_DOCS:SECTION 1: CONSTANTS
+* Section overview: constants drive structure and assumptions
+* - COL indexes must match your CSV mapping — change carefully
+* - LS_KEYS names versioned to avoid breaking old localStorage
+* - PAGE_SIZE controls pagination and DOM size/performance
+*/
 // SECTION 1: CONSTANTS AND CONFIGURATION
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:COL
+* Map CSV columns -> your internal indexes.
+* If your bank CSV changes column order, update these numbers.
+*/
 const COL = { 
   DATE: 2,
   DEBIT: 5,
   LONGDESC: 9
 };
 
+/** BEGINNER_INLINE_DOCS:PAGE_SIZE
+* Control how many rows are visible per page.
+* Larger = fewer pages but more DOM; smaller = snappier on low-end devices.
+*/
 const PAGE_SIZE = 10;
 
 const LS_KEYS = { 
@@ -74,6 +118,11 @@ function toTitleCase(str) {
     .replace(/\b([a-z])/g, (m, p1) => p1.toUpperCase());
 }
 
+/** BEGINNER_INLINE_DOCS:parseAmount
+* Purpose: Convert strings like "$1,234.56" to a Number 1234.56
+* Why: CSVs from banks often include commas/currency symbols. We must strip them.
+* Edge cases: Empty strings => 0; non-number => 0 (safe default).
+*/
 function parseAmount(s) {
   if (s == null) return 0;
   s = String(s).replace(/[^\d\-,.]/g, '').replace(/,/g, '');
@@ -100,6 +149,11 @@ function escapeHtml(s) {
  * - Normalizes "KEY => VALUE" to "KEY => VALUE" (1 space around arrow).
  * Returns true if a change was made.
  */
+/** BEGINNER_INLINE_DOCS:sortRulesBox
+* Purpose: Keep rules sorted and normalized
+* Preservation: Keeps comments and blanks at top in original order
+* Normalization: Forces 'KEY => VALUE' uppercased with single spaces.
+*/
 function sortRulesBox({silent = false} = {}) {
   const box = document.getElementById('rulesBox');
   if (!box) return false;
@@ -157,6 +211,11 @@ function sortRulesBox({silent = false} = {}) {
 // SECTION 5: DATE PARSING (AU)
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:parseDateSmart
+* Purpose: Accept multiple AU-friendly date formats and return a Date
+* Supported: 'YYYY-MM-DD', 'DD/MM/YYYY', '1 July 2025' (and variants)
+* Tips: If your bank uses a different format, extend the regex branches here.
+*/
 function parseDateSmart(s) {
   if (!s) return null;
   const str = String(s).trim();
@@ -191,35 +250,115 @@ function getFirstTxnMonth(txns = CURRENT_TXNS) {
 }
 
 // ============================================================================
+
+/** BEGINNER_INLINE_DOCS:HEADER_MAPPING
+* Goal: Detect column positions from the CSV header row so we don't rely on fixed indexes.
+* Strategy:
+*  - Read the first row as headers (strings)
+*  - Normalise header names (lowercase, strip spaces/punctuation)
+*  - Match against common variants (e.g., "effective date" | "date"; "transaction description" | "narration" | "description"; "amount" | "debit"/"credit")
+*  - Return indexes for {dateIdx, amountIdx, descIdx} and optionally {debitIdx, creditIdx}
+*/
+function normaliseHeaderName(name) {
+  if (name == null) return "";
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectHeaderIndexes(headerRow = []) {
+  const norm = headerRow.map(normaliseHeaderName);
+  let dateIdx = -1, amountIdx = -1, descIdx = -1, debitIdx = -1, creditIdx = -1;
+
+  const isDate = (s) => /^(effective date|date|transaction date|posted date)$/.test(s);
+  const isAmount = (s) => /^(amount|aud amount|txn amount|transaction amount)$/.test(s);
+  const isDesc = (s) => /^(transaction description|description|narration|details|memo|long description)$/.test(s);
+  const isDebit = (s) => /^(debit|withdrawal|debit amount)$/.test(s);
+  const isCredit = (s) => /^(credit|deposit|credit amount)$/.test(s);
+
+  for (let i = 0; i < norm.length; i++) {
+    const s = norm[i];
+    if (dateIdx < 0 && isDate(s)) dateIdx = i;
+    if (amountIdx < 0 && isAmount(s)) amountIdx = i;
+    if (descIdx < 0 && isDesc(s)) descIdx = i;
+    if (debitIdx < 0 && isDebit(s)) debitIdx = i;
+    if (creditIdx < 0 && isCredit(s)) creditIdx = i;
+  }
+
+  return { dateIdx, amountIdx, descIdx, debitIdx, creditIdx };
+}
+
+
+/** BEGINNER_INLINE_DOCS:SECTION 6: CSV LOADING
+* How CSV becomes app state (CURRENT_TXNS)
+* - Papa.parse converts CSV to rows; we skip header row if needed
+* - We normalise amounts and keep only necessary fields
+* - Keep parsing tolerant — never crash on weird rows
+*/
 // SECTION 6: CSV LOADING
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:loadCsvText
+* Purpose: Turn raw CSV text into CURRENT_TXNS array
+* Steps:
+*  1) Parse CSV into rows (skip header row if first amount isn't numeric)
+*  2) Extract Effective Date, Amount, Description using COL indexes
+*  3) Push a {date, amount, description} object for valid rows
+*  4) Save to localStorage and trigger initial rendering
+* Safety: Ignore rows with missing fields; never throw.
+*/
 function loadCsvText(csvText) {
-  const rows = Papa.parse(csvText.trim(), { skipEmptyLines: true }).data;
-  const startIdx = rows.length && isNaN(parseAmount(rows[0][COL.DEBIT])) ? 1 : 0;
+  const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: true }).data;
+  if (!parsed || parsed.length === 0) { CURRENT_TXNS = []; applyRulesAndRender(); return []; }
+
+  const header = parsed[0] || [];
+  const { dateIdx, amountIdx, descIdx, debitIdx, creditIdx } = detectHeaderIndexes(header);
+
   const txns = [];
-  for (let i = startIdx; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || r.length < 10) continue;
-    const effectiveDate = r[COL.DATE] || '';
-    const debit = parseAmount(r[COL.DEBIT]);
-    const longDesc = (r[COL.LONGDESC] || '').trim();
-    if ((effectiveDate || longDesc) && Number.isFinite(debit) && debit !== 0) {
-       txns.push({ date: effectiveDate, amount: debit, description: longDesc });
+  for (let r = 1; r < parsed.length; r++) {
+    const row = parsed[r] || [];
+    // Skip blank lines
+    if (!row.length || row.every(c => String(c || '').trim() === '')) continue;
+
+    const effectiveDate = (dateIdx >= 0 ? row[dateIdx] : row[COL.DATE]) || '';
+    const rawDesc = (descIdx >= 0 ? row[descIdx] : row[COL.LONGDESC]) || '';
+    let amount = 0;
+
+    if (debitIdx >= 0 || creditIdx >= 0) {
+      const rawDebit = debitIdx >= 0 ? row[debitIdx] : 0;
+      const rawCredit = creditIdx >= 0 ? row[creditIdx] : 0;
+      const d = parseAmount(rawDebit);
+      const c = parseAmount(rawCredit);
+      amount = c > 0 ? c : (d > 0 ? -d : 0);
+    } else {
+      const rawAmount = (amountIdx >= 0 ? row[amountIdx] : row[COL.DEBIT]) || 0;
+      amount = parseAmount(rawAmount);
+    }
+
+    const longDesc = String(rawDesc || '').trim();
+    if ((effectiveDate || longDesc) && Number.isFinite(amount) && amount !== 0) {
+      txns.push({ date: effectiveDate, amount, description: longDesc });
     }
   }
+
   CURRENT_TXNS = txns;
   saveTxnsToLocalStorage();
-  try { updateMonthBanner(); } catch {}
+  try { updateMonthBanner(); } catch (e) {}
   rebuildMonthDropdown();
   applyRulesAndRender();
   return txns;
-}
+
 
 // ============================================================================
 // SECTION 7: MONTH FILTERING
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:rebuildMonthDropdown
+* Purpose: Extract unique months from CURRENT_TXNS and populate the <select>
+* UX: Keeps current selection if still valid; otherwise resets to 'All months'.
+*/
 function rebuildMonthDropdown() {
   const sel = document.getElementById('monthFilter');
   const months = new Set();
@@ -235,6 +374,10 @@ function rebuildMonthDropdown() {
   updateMonthBanner();
 }
 
+/** BEGINNER_INLINE_DOCS:monthFilteredTxns
+* Purpose: Filter CURRENT_TXNS by MONTH_FILTER (YYYY-MM)
+* Note: If no month is set, return all transactions.
+*/
 function monthFilteredTxns() {
   if (!MONTH_FILTER) return CURRENT_TXNS;
   return CURRENT_TXNS.filter(t => {
@@ -244,9 +387,20 @@ function monthFilteredTxns() {
 }
 
 // ============================================================================
+/** BEGINNER_INLINE_DOCS:SECTION 8: RULES
+* Rule engine and matching strategy
+* - Rules are case-insensitive 'KEYWORD => CATEGORY' lines
+* - We match whole tokens to avoid false positives
+* - Keep rules simple; first match wins in many tools, we scan all
+*/
 // SECTION 8: RULES
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:parseRules
+* Purpose: Convert rules text into [{ keyword, category }] objects
+* Format: 'KEYWORD => CATEGORY' per line (case-insensitive)
+* Notes: Ignores comments (# ...) and blank lines; trims whitespace.
+*/
 function parseRules(text) {
   const lines = String(text || "").split(/\r?\n/);
   const rules = [];
@@ -263,6 +417,11 @@ function parseRules(text) {
   return rules;
 }
 
+/** BEGINNER_INLINE_DOCS:matchesKeyword
+* Purpose: Check if a transaction description matches a rule keyword
+* Strategy: Token-based, whole-word-ish matches using regex boundaries
+* Special: For 3-word keywords, allows any non-alnum between words (robust to punctuation).
+*/
 function matchesKeyword(descLower, keywordLower) {
   if (!keywordLower) return false;
   const text = String(descLower || '').toLowerCase();
@@ -281,6 +440,11 @@ function matchesKeyword(descLower, keywordLower) {
   });
 }
 
+/** BEGINNER_INLINE_DOCS:categorise
+* Purpose: Assign categories to txns using rules
+* Flow: For each txn, scan rules; last match wins; can add special cases
+* Example special case: if PETROL <= $2 treat as COFFEE (demo of post-filters).
+*/
 function categorise(txns, rules) {
   for (const t of txns) {
     const descLower = String(t.desc || t.description || "").toLowerCase();
@@ -298,6 +462,11 @@ function categorise(txns, rules) {
 // SECTION 9: CATEGORY TOTALS
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:computeCategoryTotals
+* Purpose: Sum amounts by category and return sorted rows
+* Output: { rows: [[category, total]...], grand: sum }
+* Use: The rows feed the Category Totals table; grand computes percentages.
+*/
 function computeCategoryTotals(txns) {
   const byCat = new Map();
   for (const t of txns) {
@@ -309,6 +478,11 @@ function computeCategoryTotals(txns) {
   return { rows, grand };
 }
 
+/** BEGINNER_INLINE_DOCS:renderCategoryTotals
+* Purpose: Paint the Category Totals table
+* Tips: Keep string building local; use toTitleCase for display
+* Interactivity: Each category name is a link that sets CURRENT_FILTER.
+*/
 function renderCategoryTotals(txns) {
   const { rows, grand } = computeCategoryTotals(txns);
   const totalsDiv = document.getElementById('categoryTotals');
@@ -340,6 +514,11 @@ function renderCategoryTotals(txns) {
   });
 }
 
+/** BEGINNER_INLINE_DOCS:renderMonthTotals
+* Purpose: Show month summary (count, debit, credit, net)
+* Dependency: getFilteredTxns(monthFilteredTxns())
+* UX: Adds a friendly label and highlights current filter.
+*/
 function renderMonthTotals() {
   const txns = getFilteredTxns(monthFilteredTxns());
   let debit = 0, credit = 0, count = 0;
@@ -361,9 +540,20 @@ function renderMonthTotals() {
 }
 
 // ============================================================================
+/** BEGINNER_INLINE_DOCS:SECTION 10: MAIN RENDER
+* Render pipeline overview
+* - Load txns -> parse rules -> categorise -> render totals/table
+* - State lives in CURRENT_* variables; UI derives from state
+* - Minimise direct DOM mutations; batch via string building
+*/
 // SECTION 10: MAIN RENDER
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:applyRulesAndRender
+* Purpose: Central orchestrator for re-render
+* Steps: Parse rules -> categorise -> render totals -> render table -> persist
+* Option: keepPage=true to avoid jumping back to page 1 after edits.
+*/
 function applyRulesAndRender({keepPage = false} = {}) { 
   if (!keepPage) CURRENT_PAGE = 1;
   CURRENT_RULES = parseRules(document.getElementById('rulesBox').value);
@@ -381,11 +571,18 @@ function applyRulesAndRender({keepPage = false} = {}) {
 // SECTION 11: TXN TABLE & PAGER
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:getFilteredTxns
+* Purpose: Apply the category filter (CURRENT_FILTER) on top of month filtering
+* Returns: A narrowed array for rendering and summaries.
+*/
 function getFilteredTxns(txns) {
   if (!CURRENT_FILTER) return txns;
   return txns.filter(t => (t.category || 'UNCATEGORISED').toUpperCase() === CURRENT_FILTER);
 }
 
+/** BEGINNER_INLINE_DOCS:updateFilterUI
+* Purpose: Show/hide the 'Show all' button and the current filter label.
+*/
 function updateFilterUI() {
   const label = document.getElementById('activeFilter');
   const btn = document.getElementById('clearFilterBtn');
@@ -398,12 +595,20 @@ function updateFilterUI() {
   }
 }
 
+/** BEGINNER_INLINE_DOCS:updateMonthBanner
+* Purpose: Update the label near Section 2 heading with the active month.
+*/
 function updateMonthBanner() {
   const banner = document.getElementById('monthBanner');
   const label = friendlyMonthOrAll(MONTH_FILTER);
   banner.textContent = `— ${label}`;
 }
 
+/** BEGINNER_INLINE_DOCS:renderTransactionsTable
+* Purpose: Paint the paged transactions table
+* Pagination: Uses CURRENT_PAGE and PAGE_SIZE
+* Performance: Builds HTML string once; attaches click handlers after.
+*/
 function renderTransactionsTable(txns = monthFilteredTxns()) {
   const filtered = getFilteredTxns(txns);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -429,6 +634,11 @@ function renderTransactionsTable(txns = monthFilteredTxns()) {
   renderPager(totalPages);
 }
 
+/** BEGINNER_INLINE_DOCS:renderPager
+* Purpose: Render First/Prev/Next/Last and numbered page buttons
+* UX: Shows current page and total pages; supports mouse wheel paging
+* Safety: Disables buttons at edges; ignores clicks to current page.
+*/
 function renderPager(totalPages) {
   const pager = document.getElementById('pager');
   if (!pager) return;
@@ -484,6 +694,11 @@ function renderPager(totalPages) {
 // SECTION 12: EXPORT/IMPORT
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:exportTotals
+* Purpose: Create a fixed-width text report for totals
+* Formatting: Pads columns so the text exports neatly aligned
+* File: Uses Blob + URL.createObjectURL to trigger a download.
+*/
 function exportTotals() {
   const txns = monthFilteredTxns();
   const { rows, grand } = computeCategoryTotals(txns);
@@ -511,6 +726,9 @@ function exportTotals() {
   a.remove();
 }
 
+/** BEGINNER_INLINE_DOCS:exportRules
+* Purpose: Download the raw rules text as a file for backup.
+*/
 function exportRules() {
   const text = document.getElementById('rulesBox').value || '';
   const blob = new Blob([text], {type: 'text/plain'});
@@ -522,6 +740,10 @@ function exportRules() {
   a.remove();
 }
 
+/** BEGINNER_INLINE_DOCS:importRulesFromFile
+* Purpose: Read .txt rules and load them into the textarea, then re-render
+* Extra: Alphabetises immediately so imported rules are tidy.
+*/
 function importRulesFromFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
@@ -541,6 +763,11 @@ function importRulesFromFile(file) {
 // SECTION 13: CATEGORY ASSIGNMENT
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:deriveKeywordFromTxn
+* Purpose: Suggest a starting rule keyword from a txn description
+* Strategy: Extract alphanumeric tokens; prefer 'PAYPAL' or post-'VISA' tokens
+* Why: Speeds up adding rules by guessing a sensible keyword.
+*/
 function deriveKeywordFromTxn(txn) {
   if (!txn) return "";
   const desc = String(txn.description || txn.desc || "").trim();
@@ -558,6 +785,11 @@ function deriveKeywordFromTxn(txn) {
   return join3(0);
 }
 
+/** BEGINNER_INLINE_DOCS:addOrUpdateRuleLine
+* Purpose: Insert or update a rule in the rules textarea
+* Behaviour: Rewrites existing line if keyword exists; otherwise appends
+* Post-step: Calls sortRulesBox to keep rules alphabetised.
+*/
 function addOrUpdateRuleLine(keywordUpper, categoryUpper) {
   if (!keywordUpper || !categoryUpper) return false;
   const box = document.getElementById('rulesBox');
@@ -588,6 +820,11 @@ function addOrUpdateRuleLine(keywordUpper, categoryUpper) {
   return true;
 }
 
+/** BEGINNER_INLINE_DOCS:assignCategory
+* Purpose: Open the category picker, then apply user's selection
+* Flow: Build a deduplicated category list (from txns + rules) -> open modal -> onChoose()
+* After: If chosen, also suggest adding/updating a rule for future auto-categorisation.
+*/
 function assignCategory(idx) {
   const fromTxns = (Array.isArray(CURRENT_TXNS) ? CURRENT_TXNS : []).map(x => (x.category || '').trim());
   const fromRules = (Array.isArray(CURRENT_RULES) ? CURRENT_RULES : []).map(r => (r.category || '').trim ? r.category : (r.category || ''));
@@ -673,6 +910,11 @@ function assignCategory_OLD(idx) {
 // SECTION 14: LOCAL STORAGE
 // ============================================================================
 
+/** BEGINNER_INLINE_DOCS:saveTxnsToLocalStorage
+* Purpose: Persist CURRENT_TXNS for future sessions
+* Reliability: Wrap in try/catch; browsers may block or clear storage
+* Compatibility: Writes to multiple keys for older versions.
+*/
 function saveTxnsToLocalStorage() {
   try {
     const data = JSON.stringify(CURRENT_TXNS || []);
